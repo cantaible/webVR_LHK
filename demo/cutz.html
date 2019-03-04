@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <title>cutZ</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <!--<iframe src="http://threegraphs.com/charts/preview/7968/embed/"></iframe>-->
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            margin: 0px;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+<!--<form>-->
+    <!--<input type="button" value="                   切割" onClick="updateModel()">-->
+<!--</form>-->
+
+</body>
+<script src="js/deps/three.js"></script>
+<script src="js/deps/VRControls.js"></script>
+<script src="js/deps/VREffect.js"></script>
+<script src="js/deps/webvr-polyfill.js"></script>
+<script src="js/webvr-manager.js"></script>
+<script src="js/STLLoader.js"></script>
+<script src="js/OBJLoader2.js"></script>
+<script src="js/MTLLoader.js"></script>
+<script src="js/OBJMTLLoader.js"></script>
+<script src="../release/vreticle.js"></script>
+<script src="js/deps/stats.min.js"></script>
+<script src="js/deps/dat.gui.min.js"></script>
+
+
+<script>
+    var renderer = new THREE.WebGLRenderer({antialias: true});
+    // renderer.setClearColor(new THREE.Color(0xffff00, 1.0));
+    // renderer.setClearColor(new THREE.Color(0x008000, 1.0));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    // renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.3, 30000000);
+    camera.position.set(1700,3400,-700);
+    console.log(camera);
+
+    console.log('camera=',camera);
+    scene.add(camera);
+
+    var reticle = vreticle.Reticle(camera);
+
+
+    var spotLight = new THREE.SpotLight("#ffffff");
+    spotLight.position.set(1700, 10000, -700);
+    // spotLight.intensity = 2;
+    scene.add(spotLight);
+
+    var spotLight1 = new THREE.SpotLight("#ffffff");
+    spotLight1.position.set(0, 10000, 30000);
+    spotLight1.intensity = 0.4;
+    scene.add(spotLight1);
+
+
+    var controls = new THREE.VRControls(camera);
+    var effect = new THREE.VREffect(renderer);
+    effect.setSize(window.innerWidth, window.innerHeight);
+    var manager = new WebVRManager(renderer, effect);
+
+
+
+    // var planeGeometry = new THREE.PlaneGeometry(5000, 5000);
+    // var texture = THREE.ImageUtils.loadTexture("js/maps/moutain.jpg");
+    // var planeMaterial = new THREE.MeshPhongMaterial();
+    // planeMaterial.map=texture;
+    // var plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    // // plane.rotation.x = 0.5 * Math.PI;
+    // plane.rotation.y = Math.PI;
+    // plane.position.x = 1255.80;
+    // plane.position.y = 4496.02;
+    // plane.position.z = -3885.28;
+    // scene.add(plane);
+
+    var cubeGeometry = new THREE.BoxGeometry(100, 100, 10);
+    var cubeMaterial = new THREE.MeshLambertMaterial();
+    var texture = THREE.ImageUtils.loadTexture("js/maps/next.png");
+    cubeMaterial.map=texture;
+    var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.set(2000,3100,-1500);
+    reticle.add_collider(cube);
+
+    cube.ongazelong = function(){
+        updateModel();
+    }
+
+    cube.ongazeover = function(){
+    }
+
+    cube.ongazeout = function(){
+    }
+    scene.add(cube);
+
+    var cubeGeometry = new THREE.BoxGeometry(100, 100, 10);
+    var cubeMaterial = new THREE.MeshLambertMaterial();
+    var texture = THREE.ImageUtils.loadTexture("js/maps/show.png");
+    cubeMaterial.map=texture;
+    var cube1 = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube1.position.set(1800,3100,-1500);
+    reticle.add_collider(cube1);
+
+    cube1.ongazelong = function(){
+    }
+
+    cube1.ongazeover = function(){
+    }
+
+    cube1.ongazeout = function(){
+    }
+    scene.add(cube1);
+    var cubeGeometry = new THREE.BoxGeometry(100, 100, 10);
+    var cubeMaterial = new THREE.MeshLambertMaterial();
+    var texture = THREE.ImageUtils.loadTexture("js/maps/inquiry.png");
+    cubeMaterial.map=texture;
+    var cube2 = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube2.position.set(1600,3100,-1500);
+    scene.add(cube2);
+
+    var mesh;
+    var loader = new THREE.OBJLoader();
+    //导入坝体
+    var dam;
+    loader.load('js/model/dam_r.obj', function (loadedMesh) {
+        loadedMesh.children.forEach(function (child) {
+            var color='#'+('00000'+(Math.random()*(1<<24)|0).toString(16)).slice(-6);
+            child.material = new THREE.MeshPhongMaterial({color: color});
+            child.geometry.computeFaceNormals();
+            child.geometry.computeVertexNormals();
+            if(child.name=='dixing5'){
+                var texture = THREE.ImageUtils.loadTexture("js/maps/moutain.jpg");
+                child.material.map=texture;
+                child.material.map.wrapS=THREE.RepeatWrapping;
+                child.material.map.wrapT=THREE.RepeatWrapping;
+            }
+            else if(child.name=='kaiwamian_bajian'){
+                var texture = THREE.ImageUtils.loadTexture("js/maps/山体遮罩-石渣建筑.jpg");
+                child.material.map=texture;
+                child.material.map.wrapS=THREE.RepeatWrapping;
+                child.material.map.wrapT=THREE.RepeatWrapping;
+            }
+            else if(child.name=='kaiwamian_dianzhanchukou'){
+                var texture = THREE.ImageUtils.loadTexture("js/maps/concrete4.jpg");
+                child.material.map=texture;
+            }
+            else if(child.name=='kaiwamian_jinshuikou'){
+                var texture = THREE.ImageUtils.loadTexture("js/maps/concrete4.jpg");
+                child.material.map=texture;
+            }
+            else if(child.name=='kaiwamian_kaiguanzhan'){
+                var texture = THREE.ImageUtils.loadTexture("js/maps/concrete4.jpg");
+                child.material.map=texture;
+            }
+            else if(child.name=='youanxiehongdaoliukaiwamian'){
+                var texture = THREE.ImageUtils.loadTexture("js/maps/concrete4.jpg");
+                child.material.map=texture;
+            }
+            else{
+                var color='#'+('00000'+(Math.random()*(1<<24)|0).toString(16)).slice(-6);
+                child.material = new THREE.MeshPhongMaterial({color: color});
+                var gg=new THREE.Geometry().fromBufferGeometry( child.geometry );
+                cutZ(2729.27,gg);
+                child.geometry=gg;
+            }
+
+
+            child.rotation.x=-0.5 * Math.PI;
+            // child.rotation.z=-0.5 * Math.PI;
+        });
+
+        dam = loadedMesh;
+        // mesh.position.y-=2800;
+        console.log('dam=',loadedMesh);
+        scene.add(dam);
+    });
+
+    var kaiwa;
+    loader.load('js/model/kaiwamian_r.obj', function (loadedMesh) {
+        loadedMesh.children.forEach(function (child) {
+            child.geometry.computeFaceNormals();
+            child.geometry.computeVertexNormals();
+            var texture = THREE.ImageUtils.loadTexture("js/maps/山体遮罩-石渣建筑.jpg");
+            child.material.map=texture;
+            child.material.map.wrapS=THREE.RepeatWrapping;
+            child.material.map.wrapT=THREE.RepeatWrapping;
+            child.rotation.x=-0.5 * Math.PI;
+        });
+
+        kaiwa = loadedMesh;
+        // mesh.position.y-=2800;
+        console.log('kaiwa=',loadedMesh);
+        scene.add(kaiwa);
+    });
+
+    var dixing;
+    loader.load('js/model/dixing_r.obj', function (loadedMesh) {
+        loadedMesh.children.forEach(function (child) {
+            child.geometry.computeFaceNormals();
+            child.geometry.computeVertexNormals();
+            var texture = THREE.ImageUtils.loadTexture("js/maps/moutain.jpg");
+            child.material.map=texture;
+            child.material.map.wrapS=THREE.RepeatWrapping;
+            child.material.map.wrapT=THREE.RepeatWrapping;
+            child.rotation.x=-0.5 * Math.PI;
+        });
+
+        dixing = loadedMesh;
+        // mesh.position.y-=2800;
+        console.log('dixing=',loadedMesh);
+        scene.add(dixing);
+    });
+
+    stats = new Stats();
+    document.body.appendChild(stats.dom);
+
+    // Request animation frame loop function
+    function animate() {
+
+        controls.update();
+        // setTimeout(funcName,500);
+        // camera.rotation.z+=0.1;
+
+        stats.update();
+        // Render the scene through the manager.
+        manager.render(scene, camera);
+        reticle.reticle_loop();
+
+        requestAnimationFrame(animate);
+    }
+
+    // Kick off animation loop
+    animate();
+
+    // Listen for keyboard event and zero positional sensor on appropriate keypress.
+    function onKey(event) {
+        if (event.keyCode == 90) { // z
+            controls.zeroSensor();
+        }
+    };
+
+    window.addEventListener('keydown', onKey, true);
+
+
+    // Handle window resizes
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        effect.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function cutZ(h, geometry) {
+        var faces = geometry.faces;
+        // console.log('face=',faces);
+        var vertices = geometry.vertices;
+        // console.log('vertices=',vertices);
+        var newfaces = new Array();
+        var newvertNum=0;
+        var centerVert = new THREE.Vector3(0, 0, 0);
+        for (var F = 0; F < faces.length; F++) {
+            var topVertNums = 0;
+            var vert = "";
+            var point1 = vertices[faces[F].a];
+            //point1等于第f个面的第1个点,将向量转化为数组
+            var point2 = vertices[faces[F].b];
+            var point3 = vertices[faces[F].c];
+            var surface = [point1, point2, point3];
+            if (surface[0].z > h) {
+                vert += "1";
+                topVertNums++;
+            } else {
+                vert += "0";
+            }
+            if (surface[1].z > h) {
+                vert += "1";
+                topVertNums++;
+            } else {
+                vert += "0";
+            }
+            if (surface[2].z > h) {
+                vert += "1";
+                topVertNums++;
+            } else {
+                vert += "0";
+            }
+            // console.log('vert=',vert);
+            //判断在高程之上的有一个还是两个顶点，此条件说明三角形在特定高程内
+            if (topVertNums == 1) {
+                var index = vert.indexOf("1");
+                var topVert = surface[index];
+                var b1 = vert.indexOf("0");
+                var bottomVert1 = surface[b1];
+                var b2 = vert.lastIndexOf("0");
+                var bottomVert2 = surface[b2];
+                //    新增顶点
+                var x = (topVert.x - bottomVert1.x) * (h - bottomVert1.z) / (topVert.z - bottomVert1.z) + bottomVert1.x;
+                var y = (topVert.y - bottomVert1.y) * (h - bottomVert1.z) / (topVert.z - bottomVert1.z) + bottomVert1.y;
+                centerVert.x += x;
+                centerVert.y += y;
+                centerVert.z += h;
+                var newVert1 = new THREE.Vector3(x, y, h);
+                newvertNum=newvertNum+1;
+                vertices.push(newVert1);
+
+                x = (topVert.x - bottomVert2.x) * (h - bottomVert2.z) / (topVert.z - bottomVert2.z) + bottomVert2.x;
+                y = (topVert.y - bottomVert2.y) * (h - bottomVert2.z) / (topVert.z - bottomVert2.z) + bottomVert2.y;
+                centerVert.x += x;
+                centerVert.y += y;
+                centerVert.z += h;
+                var newVert2 = new THREE.Vector3(x, y, h);
+                newvertNum=newvertNum+1;
+                vertices.push(newVert2);
+
+                if (index == 0) {
+                    //100
+                    newfaces.push(new THREE.Face3(vertices.indexOf(newVert2), vertices.indexOf(bottomVert1), vertices.indexOf(bottomVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(topVert), vertices.indexOf(newVert1), vertices.indexOf(newVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(newVert1), vertices.indexOf(bottomVert1), vertices.indexOf(newVert2)));
+                }
+                else if (index == 1) {
+                    //    010
+                    newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert1), vertices.indexOf(newVert1), vertices.indexOf(bottomVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert2), vertices.indexOf(newVert1), vertices.indexOf(newVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(newVert1), vertices.indexOf(topVert), vertices.indexOf(newVert2)));
+                }
+                else if (index == 2) {
+                    //    001
+                    newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert1), vertices.indexOf(bottomVert2), vertices.indexOf(newVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert1), vertices.indexOf(newVert2), vertices.indexOf(newVert1)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(newVert1), vertices.indexOf(newVert2), vertices.indexOf(topVert)));
+                }
+            }
+            else if (topVertNums == 2) {
+                var index = vert.indexOf("0");
+                var bottomVert = surface[index];
+                var t1 = vert.indexOf("1");
+                var topVert1 = surface[t1];
+                var t2 = vert.lastIndexOf("1");
+                var topVert2 = surface[t2];
+
+                var x = (topVert1.x - bottomVert.x) * (h - bottomVert.z) / (topVert1.z - bottomVert.z) + bottomVert.x;
+                var y = (topVert1.y - bottomVert.y) * (h - bottomVert.z) / (topVert1.z - bottomVert.z) + bottomVert.y;
+                centerVert.x += x;
+                centerVert.y += y;
+                centerVert.z += h;
+                var newVert1 = new THREE.Vector3(x, y, h);
+                newvertNum=newvertNum+1;
+                vertices.push(newVert1);
+
+                x = (topVert2.x - bottomVert.x) * (h - bottomVert.z) / (topVert2.z - bottomVert.z) + bottomVert.x;
+                y = (topVert2.y - bottomVert.y) * (h - bottomVert.z) / (topVert2.z - bottomVert.z) + bottomVert.y;
+                centerVert.x += x;
+                centerVert.y += y;
+                centerVert.z += h;
+                var newVert2 = new THREE.Vector3(x, y, h);
+                newvertNum=newvertNum+1;
+                vertices.push(newVert2);
+
+                if (index == 0) {
+                    //011
+                    newfaces.push(new THREE.Face3(vertices.indexOf(newVert2), vertices.indexOf(topVert1), vertices.indexOf(topVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(newVert1), vertices.indexOf(topVert1), vertices.indexOf(newVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert), vertices.indexOf(newVert1), vertices.indexOf(newVert2)));
+                }
+                else if (index == 1) {
+                    //    101
+                    newfaces.push(new THREE.Face3(vertices.indexOf(topVert1), vertices.indexOf(newVert1), vertices.indexOf(topVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(topVert2), vertices.indexOf(newVert1), vertices.indexOf(newVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(newVert1), vertices.indexOf(bottomVert), vertices.indexOf(newVert2)));
+                }
+                else if (index == 2) {
+                    //    110
+                    newfaces.push(new THREE.Face3(vertices.indexOf(topVert1), vertices.indexOf(topVert2), vertices.indexOf(newVert2)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(topVert1), vertices.indexOf(newVert2), vertices.indexOf(newVert1)));
+                    newfaces.push(new THREE.Face3(vertices.indexOf(newVert1), vertices.indexOf(newVert2), vertices.indexOf(bottomVert)));
+                }
+            }
+            else {
+                newfaces.push(faces[F]);
+            }
+        }
+        if (vertices.length > 0) {
+            // centerVert.x = centerVert.x / ((vertices.length * 2));
+            // centerVert.y = centerVert.y / ((vertices.length * 2));
+            // centerVert.z = centerVert.z / ((vertices.length * 2));
+            centerVert.x = centerVert.x / newvertNum;
+            centerVert.y = centerVert.y / newvertNum;
+            centerVert.z = centerVert.z / newvertNum;
+
+
+            for (var p = 0; p < vertices.length; p++) {
+                if (vertices[p].z > h) {
+                    vertices[p].z = h;
+                    vertices[p].x = centerVert.x;
+                    vertices[p].y = centerVert.y;
+                }
+            }
+        }
+        // console.log('vertices=', vertices);
+        // console.log('newfaces=', newfaces);
+        // console.log('cencerVert=', centerVert);
+
+        geometry.vertices = vertices;
+        geometry.faces = newfaces;
+        // geometry.computeVertexNormals();
+        geometry.computeFaceNormals();
+    }
+
+    var newModel;
+    function updateModel() {
+        scene.remove(newModel);
+        if(dam.children){
+            scene.remove(dam);
+            var newGroup;
+            for(var i=0;i<dam.children.length;i++){
+                newGroup=dam.children[i].geometry.clone();
+                var gg=new THREE.Geometry().fromBufferGeometry( newGroup );
+                cutZ(2700,gg);
+                dam.children[i].geometry=gg;
+
+            }
+            // cutZ(h,group2);
+            // newModel = new THREE.Mesh(group2, mat);
+            // newModel.rotation.x = -0.5 * Math.PI;
+            // newModel.rotation.z = -0.5 * Math.PI;
+            // newModel.scale.set(0.4, 0.4, 0.4);
+            // newModel.position.set(0,10,-30);
+            // scene.add(newModel);
+            // h=h-1;
+        }
+    }
+
+    window.addEventListener('resize', onWindowResize, false);
+    window.onload = function () {
+        var loadTime = window.performance.timing.domContentLoadedEventEnd-window.performance.timing.navigationStart;
+        console.log('Page load time is '+ loadTime);
+    }
+
+</script>
+
+</html>

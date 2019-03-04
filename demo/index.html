@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<title>Web VR boilerplate (Cardboard and Oculus)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<style>
+body {
+  background-color: #000;
+  color: #fff;
+  margin: 0px;
+  padding: 0;
+  overflow: hidden;
+}
+</style>
+</head>
+
+<body>
+
+</body>
+
+<!--
+  three.js 3d library
+  -->
+<script src="js/deps/three.js"></script>
+
+<!--
+  VRControls.js acquires positional information from connected VR devices and applies the transformations to a three.js camera object.
+   -->
+<script src="js/deps/VRControls.js"></script>
+
+<!--
+  VREffect.js handles stereo camera setup and rendering.
+  -->
+<script src="js/deps/VREffect.js"></script>
+
+<!--
+  A polyfill for WebVR using the Device{Motion,Orientation}Event API.
+  -->
+<script src="js/deps/webvr-polyfill.js"></script>
+
+<!--
+  Helps enter and exit VR mode, provides best practices while in VR.
+  -->
+<script src="js/webvr-manager.js"></script>
+<script src="js/STLLoader.js"></script>
+<!--<script src="js/Loader.js"></script>-->
+<script src="../release/vreticle.js"></script>
+<script src="js/deps/stats.min.js"></script>
+<script src="js/deps/dat.gui.min.js"></script>
+
+
+<script>
+//Setup three.js WebGL renderer
+var renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.localClippingEnabled = true;
+// Append the canvas element created by the renderer to document body element.
+document.body.appendChild(renderer.domElement);
+
+// Create a three.js scene.
+var scene = new THREE.Scene();
+
+// Create a three.js camera.
+var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.3, 10000);
+camera.position.set(0,15,30);
+// camera.rotation.set(0.261,0,0);
+// camera.lookAt(0,0,0);
+
+// Apply VR headset positional data to camera.
+var controls = new THREE.VRControls(camera);
+
+// Apply VR stereo rendering to renderer.
+var effect = new THREE.VREffect(renderer);
+effect.setSize(window.innerWidth, window.innerHeight);
+
+// Create a VR manager helper to enter and exit VR mode.
+var manager = new WebVRManager(renderer, effect);
+
+//create gaze interaction manager
+var reticle = vreticle.Reticle(camera);
+scene.add(camera);
+
+var spotLight = new THREE.SpotLight( 0xffffff );
+spotLight.angle = Math.PI / 5;
+spotLight.intensity = 2;
+spotLight.position.set( 90, 50, 100 );
+scene.add( spotLight );
+
+var spotLight1 = new THREE.SpotLight( 0xffffff );
+spotLight1.angle = Math.PI / 5;
+spotLight1.intensity = 2;
+spotLight1.position.set( -90, -130, 0 );
+scene.add( spotLight1 );
+
+var spotLight2 = new THREE.SpotLight( 0xffffff );
+spotLight2.angle = Math.PI / 5;
+spotLight2.intensity = 2;
+spotLight2.position.set( 0, 90, -170 );
+scene.add( spotLight2 );
+
+
+
+
+var loader = new THREE.STLLoader();
+var localPlane=new THREE.Plane(new THREE.Vector3(0,-1,0),7);
+
+//在控制台输出
+var mat = new THREE.MeshPhongMaterial({
+    color: 0x123456,
+    shininess:100,
+    clippingPlanes:[localPlane],
+    clipShadows: true
+});
+var group = new THREE.Object3D();
+loader.load("js/12345.stl", function (geometry) {
+    console.log(geometry);
+    //为导入的材料创建材质
+    // cutZ(7,geometry);
+    group = new THREE.Mesh(geometry, mat);
+    group.rotation.x = -0.5 * Math.PI;
+    group.rotation.z = -0.2 * Math.PI;
+    group.scale.set(0.4, 0.4, 0.4);
+    scene.add(group);
+    reticle.add_collider(group);
+
+    group.ongazelong = function(){
+        this.material = reticle.get_random_hex_material();
+    }
+
+    group.ongazeover = function(){
+        this.material = reticle.get_random_hex_material_1();
+    }
+
+    group.ongazeout = function(){
+        this.material = reticle.default_material();
+        this.material = mat;
+    }
+});
+stats = new Stats();
+document.body.appendChild( stats.dom );
+
+// Request animation frame loop function
+function animate() {
+  // Apply rotation to cube mesh
+  group.rotation.z += 0.01;
+  // Update VR headset position and apply to camera.
+  controls.update();
+    stats.update();
+  // Render the scene through the manager.
+  manager.render(scene, camera);
+
+  //reticle_loop
+  reticle.reticle_loop();
+
+  requestAnimationFrame( animate );
+}
+
+// Kick off animation loop
+animate();
+
+// Listen for keyboard event and zero positional sensor on appropriate keypress.
+function onKey(event) {
+  if (event.keyCode == 90) { // z
+    controls.zeroSensor();
+  }
+};
+
+window.addEventListener('keydown', onKey, true);
+
+
+// Handle window resizes
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+
+  effect.setSize( window.innerWidth, window.innerHeight );
+}
+
+function cutZ(h,geometry) {
+    var faces=geometry.faces;
+    var vertices=geometry.vertices;
+    var newfaces=new Array();
+    var centerVert=new THREE.Vector3(0,0,0);
+    for(var F=0;F<faces.length;F++)
+    {
+        var topVertNums=0;
+        var vert="";
+        var point1 = vertices[faces[F].a];
+        //point1等于第f个面的第1个点,将向量转化为数组
+        var point2 = vertices[faces[F].b];
+        var point3 = vertices[faces[F].c];
+        var surface = [point1,point2,point3];
+        if(surface[0].z>h){
+            vert+="1";
+            topVertNums++;
+        }else{vert+="0";}
+        if(surface[1].z>h){
+            vert+="1";
+            topVertNums++;
+        }else{vert+="0";}
+        if(surface[2].z>h){
+            vert+="1";
+            topVertNums++;
+        }else{vert+="0";}
+        // console.log('vert=',vert);
+        //判断在高程之上的有一个还是两个顶点，此条件说明三角形在特定高程内
+        if(topVertNums==1){
+            var index=vert.indexOf("1");
+            var topVert=surface[index];
+            var b1=vert.indexOf("0");
+            var bottomVert1=surface[b1];
+            var b2=vert.lastIndexOf("0");
+            var bottomVert2=surface[b2];
+            //    新增顶点
+            var x=(topVert.x - bottomVert1.x)*(h-bottomVert1.z)/(topVert.z - bottomVert1.z) + bottomVert1.x;
+            var y=(topVert.y - bottomVert1.y)*(h-bottomVert1.z)/(topVert.z - bottomVert1.z) + bottomVert1.y;
+            centerVert.x+=x;
+            centerVert.y+=y;
+            centerVert.z+=h;
+            var newVert1=new THREE.Vector3(x,y,h);
+            vertices.push(newVert1);
+
+            x=(topVert.x - bottomVert2.x)*(h-bottomVert2.z)/(topVert.z - bottomVert2.z) + bottomVert2.x;
+            y=(topVert.y - bottomVert2.y)*(h-bottomVert2.z)/(topVert.z - bottomVert2.z) + bottomVert2.y;
+            centerVert.x+=x;
+            centerVert.y+=y;
+            centerVert.z+=h;
+            var newVert2=new THREE.Vector3(x,y,h);
+            vertices.push(newVert2);
+
+            if(index==0){
+                //100
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert2),vertices.indexOf(bottomVert1),vertices.indexOf(bottomVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert),vertices.indexOf(newVert1),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(bottomVert1),vertices.indexOf(newVert2)));
+            }
+            else if(index==1){
+                //    010
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert1),vertices.indexOf(newVert1),vertices.indexOf(bottomVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert2),vertices.indexOf(newVert1),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(topVert),vertices.indexOf(newVert2)));
+            }
+            else if(index==2){
+                //    001
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert1),vertices.indexOf(bottomVert2),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert1),vertices.indexOf(newVert2),vertices.indexOf(newVert1)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(newVert2),vertices.indexOf(topVert)));
+            }
+        }
+        else if(topVertNums==2){
+            var index=vert.indexOf("0");
+            var bottomVert=surface[index];
+            var t1=vert.indexOf("1");
+            var topVert1=surface[t1];
+            var t2=vert.lastIndexOf("1");
+            var topVert2=surface[t2];
+
+            var x=(topVert1.x - bottomVert.x)*(h-bottomVert.z)/(topVert1.z - bottomVert.z) + bottomVert.x;
+            var y=(topVert1.y - bottomVert.y)*(h-bottomVert.z)/(topVert1.z - bottomVert.z) + bottomVert.y;
+            centerVert.x+=x;
+            centerVert.y+=y;
+            centerVert.z+=h;
+            var newVert1=new THREE.Vector3(x,y,h);
+            vertices.push(newVert1);
+
+            x = (topVert2.x - bottomVert.x)*(h-bottomVert.z)/(topVert2.z - bottomVert.z) + bottomVert.x;
+            y = (topVert2.y - bottomVert.y)*(h-bottomVert.z)/(topVert2.z - bottomVert.z) + bottomVert.y;
+            centerVert.x+=x;
+            centerVert.y+=y;
+            centerVert.z+=h;
+            var newVert2=new THREE.Vector3(x,y,h);
+            vertices.push(newVert2);
+
+            if(index==0){
+                //011
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert2),vertices.indexOf(topVert1),vertices.indexOf(topVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(topVert1),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert),vertices.indexOf(newVert1),vertices.indexOf(newVert2)));
+            }
+            else if(index==1){
+                //    101
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert1),vertices.indexOf(newVert1),vertices.indexOf(topVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert2),vertices.indexOf(newVert1),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(bottomVert),vertices.indexOf(newVert2)));
+            }
+            else if(index==2){
+                //    110
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert1),vertices.indexOf(topVert2),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert1),vertices.indexOf(newVert2),vertices.indexOf(newVert1)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(newVert2),vertices.indexOf(bottomVert)));
+            }
+        }
+        else{newfaces.push(faces[F]);}
+    }
+    if(vertices.length>0){
+        centerVert.x=centerVert.x/((vertices.length*2));
+        centerVert.y=centerVert.y/((vertices.length*2));
+        centerVert.z=centerVert.z/((vertices.length*2));
+        for(var p=0;p<vertices.length;p++){
+            if(vertices[p].z>h){
+                vertices[p].z=h;
+                vertices[p].x=centerVert.x;
+                vertices[p].y=centerVert.y;
+            }
+        }
+    }
+    console.log('vertices=',vertices);
+    console.log('newfaces=',newfaces);
+    console.log('cencerVert=',centerVert);
+
+    geometry.vertices = vertices;
+    geometry.faces = newfaces;
+    geometry.computeFaceNormals();
+}
+
+
+function cutY(h,geometry) {
+    var faces=geometry.faces;
+    var vertices=geometry.vertices;
+    var newfaces=new Array();
+    for(var F=0;F<faces.length;F++)
+    {
+        var topVertNums=0;
+        var vert="";
+        var point1 = vertices[faces[F].a];
+        //point1等于第f个面的第1个点,将向量转化为数组
+        var point2 = vertices[faces[F].b];
+        var point3 = vertices[faces[F].c];
+        var surface = [point1,point2,point3];
+        if(surface[0].y>h){
+            vert+="1";
+            topVertNums++;
+        }else{vert+="0";}
+        if(surface[1].y>h){
+            vert+="1";
+            topVertNums++;
+        }else{vert+="0";}
+        if(surface[2].y>h){
+            vert+="1";
+            topVertNums++;
+        }else{vert+="0";}
+        // console.log('vert=',vert);
+        //判断在高程之上的有一个还是两个顶点，此条件说明三角形在特定高程内
+        if(topVertNums==1){
+            var index=vert.indexOf("1");
+            var topVert=surface[index];
+            var b1=vert.indexOf("0");
+            var bottomVert1=surface[b1];
+            var b2=vert.lastIndexOf("0");
+            var bottomVert2=surface[b2];
+            //    新增顶点
+            var x=(topVert.x - bottomVert1.x)*(h-bottomVert1.y)/(topVert.y - bottomVert1.y) + bottomVert1.x;
+            var z=(topVert.z - bottomVert1.z)*(h-bottomVert1.y)/(topVert.y - bottomVert1.y) + bottomVert1.z;
+            var newVert1=new THREE.Vector3(x,h,z);
+            vertices.push(newVert1);
+
+            x=(topVert.x - bottomVert2.x)*(h-bottomVert2.y)/(topVert.y - bottomVert2.y) + bottomVert2.x;
+            z=(topVert.z - bottomVert2.z)*(h-bottomVert2.y)/(topVert.y - bottomVert2.y) + bottomVert2.z;
+            var newVert2=new THREE.Vector3(x,h,z);
+            vertices.push(newVert2);
+
+            if(index==0){
+                //100
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert2),vertices.indexOf(bottomVert1),vertices.indexOf(bottomVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert),vertices.indexOf(newVert1),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(bottomVert1),vertices.indexOf(newVert2)));
+            }
+            else if(index==1){
+                //    010
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert1),vertices.indexOf(newVert1),vertices.indexOf(bottomVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert2),vertices.indexOf(newVert1),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(topVert),vertices.indexOf(newVert2)));
+            }
+            else if(index==2){
+                //    001
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert1),vertices.indexOf(bottomVert2),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert1),vertices.indexOf(newVert2),vertices.indexOf(newVert1)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(newVert2),vertices.indexOf(topVert)));
+            }
+        }
+        else if(topVertNums==2){
+            var index=vert.indexOf("0");
+            var bottomVert=surface[index];
+            var t1=vert.indexOf("1");
+            var topVert1=surface[t1];
+            var t2=vert.lastIndexOf("1");
+            var topVert2=surface[t2];
+
+            var x=(topVert1.x - bottomVert.x)*(h-bottomVert.y)/(topVert1.y - bottomVert.y) + bottomVert.x;
+            var z=(topVert1.z - bottomVert.z)*(h-bottomVert.y)/(topVert1.y - bottomVert.y) + bottomVert.z;
+            var newVert1=new THREE.Vector3(x,h,z);
+            vertices.push(newVert1);
+
+            x = (topVert2.x - bottomVert.x)*(h-bottomVert.y)/(topVert2.y - bottomVert.y) + bottomVert.x;
+            z = (topVert2.z - bottomVert.z)*(h-bottomVert.y)/(topVert2.y - bottomVert.y) + bottomVert.z;
+            var newVert2=new THREE.Vector3(x,h,z);
+            vertices.push(newVert2);
+
+            if(index==0){
+                //011
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert2),vertices.indexOf(topVert1),vertices.indexOf(topVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(topVert1),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(bottomVert),vertices.indexOf(newVert1),vertices.indexOf(newVert2)));
+            }
+            else if(index==1){
+                //    101
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert1),vertices.indexOf(newVert1),vertices.indexOf(topVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert2),vertices.indexOf(newVert1),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(bottomVert),vertices.indexOf(newVert2)));
+            }
+            else if(index==2){
+                //    110
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert1),vertices.indexOf(topVert2),vertices.indexOf(newVert2)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(topVert1),vertices.indexOf(newVert2),vertices.indexOf(newVert1)));
+                newfaces.push(new THREE.Face3(vertices.indexOf(newVert1),vertices.indexOf(newVert2),vertices.indexOf(bottomVert)));
+            }
+        }
+        else{newfaces.push(faces[F]);}
+    }
+    if(vertices.length>0){
+        for(var p=0;p<vertices.length;p++){
+            if(vertices[p].y>h)vertices[p].y=h;
+        }
+    }
+    console.log('vertices=',vertices);
+    console.log('newfaces=',newfaces);
+
+
+    geometry.vertices = vertices;
+    geometry.faces = newfaces;
+    geometry.computeFaceNormals();
+}
+
+
+window.addEventListener('resize', onWindowResize, false);
+
+</script>
+
+</html>
